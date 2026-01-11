@@ -363,7 +363,7 @@ export function ThreatDashboard() {
                               key={idx}
                               className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs text-slate-300"
                             >
-                              {tech}
+                              {tech.app}
                             </span>
                           ))}
                         </div>

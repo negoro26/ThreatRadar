@@ -1,5 +1,7 @@
 "use server";
 
+import { isIP } from "net";
+
 export interface VirusTotalData {
   malicious: number;
   suspicious: number;
@@ -23,7 +25,14 @@ export interface AbuseIPDBData {
 
 export interface URLScanData {
   screenshotUrl: string;
-  technologies: string[];
+  technologies: Array<{
+    app: string;
+    confidence: number;
+    confidenceTotal: number;
+    icon?: string;
+    website?: string;
+    categories?: string[];
+  }>;
   verdict: {
     malicious: boolean;
     score: number;
@@ -67,9 +76,7 @@ export interface ThreatIntelligenceResult {
 }
 
 function isValidIP(str: string): boolean {
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  const ipv6Regex = /^([0-9a-fA-F]{0,4}:){7}[0-9a-fA-F]{0,4}$/;
-  return ipv4Regex.test(str) || ipv6Regex.test(str);
+  return isIP(str) !== 0;
 }
 
 function isValidURL(str: string): boolean {
@@ -201,11 +208,12 @@ async function fetchURLScan(url: string): Promise<URLScanData | null> {
     const submitData = await submitResponse.json();
     const resultUrl = submitData.api;
 
-    const maxRetries = 12;
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+
+    const maxRetries = 15;
+    const pollInterval = 2000;
 
     for (let i = 0; i < maxRetries; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-
       const resultResponse = await fetch(resultUrl, {
         headers: {
           "API-Key": apiKey,
@@ -216,7 +224,7 @@ async function fetchURLScan(url: string): Promise<URLScanData | null> {
       if (resultResponse.ok) {
         const resultData = await resultResponse.json();
         return {
-          screenshotUrl: resultData.task.screenshotURL || "",
+          screenshotUrl: resultData.task?.screenshotURL || "",
           technologies: resultData.meta?.processors?.wappa?.data || [],
           verdict: {
             malicious: resultData.verdicts?.overall?.malicious || false,
@@ -231,7 +239,13 @@ async function fetchURLScan(url: string): Promise<URLScanData | null> {
       }
 
       if (resultResponse.status === 404) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
         continue;
+      }
+
+      if (resultResponse.status === 410) {
+        console.warn("URLScan result was deleted (410)");
+        return null;
       }
 
       throw new Error(`URLScan result error: ${resultResponse.status}`);
