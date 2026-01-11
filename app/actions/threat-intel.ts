@@ -1,6 +1,7 @@
 "use server";
 
 import { isIP } from "net";
+import { promises as dns } from "dns";
 
 export interface VirusTotalData {
   malicious: number;
@@ -88,6 +89,17 @@ function isValidURL(str: string): boolean {
   }
 }
 
+async function resolveHostname(url: string): Promise<string | null> {
+  try {
+    const hostname = new URL(url).hostname;
+    const lookup = await dns.lookup(hostname);
+    return lookup.address;
+  } catch (e) {
+    console.warn(`Could not resolve hostname: ${url}`, e);
+    return null;
+  }
+}
+
 async function fetchVirusTotal(
   target: string,
   type: "url" | "ip",
@@ -104,10 +116,6 @@ async function fetchVirusTotal(
       const urlId = Buffer.from(target).toString("base64").replace(/=/g, "");
       endpoint = `https://www.virustotal.com/api/v3/urls/${urlId}`;
     } else {
-      if (!isValidIP(target)) {
-        console.warn(`Invalid IP address passed to VirusTotal: ${target}`);
-        return null;
-      }
       endpoint = `https://www.virustotal.com/api/v3/ip_addresses/${target}`;
     }
 
@@ -144,11 +152,6 @@ async function fetchAbuseIPDB(ip: string): Promise<AbuseIPDBData | null> {
     const apiKey = process.env.ABUSEIPDB_API_KEY;
     if (!apiKey) {
       console.warn("AbuseIPDB API key not configured");
-      return null;
-    }
-
-    if (!isValidIP(ip)) {
-      console.warn(`Invalid IP address passed to AbuseIPDB: ${ip}`);
       return null;
     }
 
@@ -398,9 +401,12 @@ export async function scanTarget(
   }
 
   try {
+    const resolvedIP = type === "ip" ? cleanTarget : await resolveHostname(cleanTarget);
+    // needed as AbuseIPDB only accepts IP addresses for its API
+
     const results = await Promise.allSettled([
       fetchVirusTotal(cleanTarget, type),
-      type === "ip" ? fetchAbuseIPDB(cleanTarget) : Promise.resolve(null),
+      resolvedIP ? fetchAbuseIPDB(resolvedIP) : Promise.resolve(null),
       type === "url" ? fetchURLScan(cleanTarget) : Promise.resolve(null),
       type === "url" ? fetchURLHaus(cleanTarget) : Promise.resolve(null),
     ]);
