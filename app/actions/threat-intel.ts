@@ -104,6 +104,10 @@ async function fetchVirusTotal(
       const urlId = Buffer.from(target).toString("base64").replace(/=/g, "");
       endpoint = `https://www.virustotal.com/api/v3/urls/${urlId}`;
     } else {
+      if (!isValidIP(target)) {
+        console.warn(`Invalid IP address passed to VirusTotal: ${target}`);
+        return null;
+      }
       endpoint = `https://www.virustotal.com/api/v3/ip_addresses/${target}`;
     }
 
@@ -140,6 +144,11 @@ async function fetchAbuseIPDB(ip: string): Promise<AbuseIPDBData | null> {
     const apiKey = process.env.ABUSEIPDB_API_KEY;
     if (!apiKey) {
       console.warn("AbuseIPDB API key not configured");
+      return null;
+    }
+
+    if (!isValidIP(ip)) {
+      console.warn(`Invalid IP address passed to AbuseIPDB: ${ip}`);
       return null;
     }
 
