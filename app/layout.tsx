@@ -9,22 +9,12 @@ export const metadata: Metadata = {
   description: 'Professional-grade vulnerability scanning and threat analysis platform',
   openGraph: {
     title: 'Threat Intelligence Dashboard',
-    description: 'Comprehensive vulnerability scanning with VirusTotal, AbuseIPDB, and URLScan',
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
-    ],
+    description: 'Comprehensive vulnerability scanning with VirusTotal, AbuseIPDB, URLScan, and URLHaus',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Threat Intelligence Dashboard',
     description: 'Professional-grade vulnerability scanning and threat analysis',
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
-    ],
   },
 };
 
