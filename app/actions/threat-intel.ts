@@ -88,6 +88,10 @@ function isValidURL(str: string): boolean {
   }
 }
 
+function isValidIP(str: string): boolean {
+  return isIP(str) !== 0;
+}
+
 async function fetchVirusTotal(
   target: string,
   type: "url" | "ip",
@@ -104,6 +108,10 @@ async function fetchVirusTotal(
       const urlId = Buffer.from(target).toString("base64").replace(/=/g, "");
       endpoint = `https://www.virustotal.com/api/v3/urls/${urlId}`;
     } else {
+      if (!isValidIP(target)) {
+        console.warn(`Invalid IP address passed to VirusTotal: ${target}`);
+        return null;
+      }
       endpoint = `https://www.virustotal.com/api/v3/ip_addresses/${target}`;
     }
 
