@@ -2,6 +2,8 @@
 
 A vulnerability scanning and threat analysis platform built with Next.js. This tool aggregates data from VirusTotal, AbuseIPDB, URLScan.io, and URLHaus to provide security assessments of URLs and IP addresses.
 
+![output](https://github.com/user-attachments/assets/d78d7dc5-2e62-4301-837e-80bbda7a2dc6)
+
 ## Features
 
 - **Multi-Source Analysis**: VirusTotal, AbuseIPDB, URLScan.io, and URLHaus integration.
