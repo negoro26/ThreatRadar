@@ -7,8 +7,23 @@ interface ScreenshotCardProps {
   results: ThreatIntelligenceResult;
 }
 
+function getSafeScreenshotUrl(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    // Allow only http/https screenshots; block javascript:, data:, etc.
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      return url.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function ScreenshotCard({ results }: ScreenshotCardProps) {
   const { urlScan, urlHaus, virusTotal, abuseIPDB, globalScore } = results;
+  const safeScreenshotUrl = getSafeScreenshotUrl(urlScan?.screenshotUrl);
 
   // Derive malicious status from ALL APIs
   const isMalicious =
@@ -35,10 +50,10 @@ export function ScreenshotCard({ results }: ScreenshotCardProps) {
         )}
       </div>
 
-      {urlScan?.screenshotUrl ? (
+      {safeScreenshotUrl ? (
         <div className="relative w-full aspect-video bg-slate-900/50 rounded-2xl overflow-hidden border border-slate-700/50 shadow-inner group">
           <img
-            src={urlScan.screenshotUrl}
+            src={safeScreenshotUrl}
             alt="Page screenshot"
             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
           />
