@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, Shield, AlertTriangle, History, X, Loader2 } from "lucide-react";
+import { Search, Shield, AlertTriangle, History, X, Loader2, Globe } from "lucide-react";
 import {
   scanTargetFast,
   scanURLScanAsync,
@@ -161,9 +161,9 @@ export function ThreatDashboard() {
     <div className="min-h-screen bg-[#070b14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(16,185,129,0.1),transparent)] text-slate-100 overflow-x-hidden relative">
       <div className="flex w-full">
         <div
-          className={`flex-1 min-w-0 transition-all duration-300 ${showHistory ? "xl:mr-80" : ""}`}
+          className={`flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-500 ease-in-out ${showHistory ? "xl:mr-96" : ""}`}
         >
-          <div className="container mx-auto px-4 py-8">
+          <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-2">
                 <Shield className="w-8 h-8 text-emerald-400" />
@@ -262,172 +262,183 @@ export function ThreatDashboard() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-1">
+                  {/* Verdict Banner */}
+                  <div className={`p-6 sm:p-10 rounded-3xl border backdrop-blur-xl mb-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl transition-all duration-500 ${results.globalScore >= 80 ? "bg-emerald-900/10 border-emerald-500/30 shadow-emerald-500/10" :
+                    results.globalScore >= 60 ? "bg-emerald-900/5 border-emerald-500/20 shadow-emerald-500/5" :
+                      results.globalScore >= 40 ? "bg-yellow-900/10 border-yellow-500/30 shadow-yellow-500/10" :
+                        results.globalScore >= 20 ? "bg-orange-900/10 border-orange-500/30 shadow-orange-500/10" :
+                          "bg-rose-900/10 border-rose-500/30 shadow-rose-500/10"
+                    }`}>
+                    <div className="flex-1 text-center md:text-left">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3">Overall Verdict</h3>
+                      <h2 className={`text-5xl md:text-6xl font-black tracking-tight mb-4 drop-shadow-lg ${getThreatLevel(results.globalScore).color}`}>
+                        {getThreatLevel(results.globalScore).label}
+                      </h2>
+                      <p className="text-slate-300 text-lg max-w-xl leading-relaxed mx-auto md:mx-0">
+                        {results.globalScore >= 80 ? "This target appears to be clean and safe to visit." :
+                          results.globalScore >= 60 ? "Low risk detected. Proceed with normal caution." :
+                            results.globalScore >= 40 ? "Moderate risk detected. Multiple sources have flagged minor or historical issues." :
+                              results.globalScore >= 20 ? "High risk detected. Proceed with extreme caution." :
+                                "Critical threat detected. This target is actively malicious or highly dangerous."}
+                      </p>
+                    </div>
+
+                    <div className="flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 relative group">
+                      <div className="absolute inset-0 bg-current opacity-10 blur-3xl rounded-full transition-all duration-500 group-hover:scale-110"></div>
                       <SafetyGauge score={results.globalScore} />
-                      <div className="mt-4 text-center">
-                        <p className="text-sm text-slate-400 mb-1">
-                          Threat Level
-                        </p>
-                        <p
-                          className={`text-lg font-bold ${getThreatLevel(results.globalScore).color}`}
-                        >
-                          {getThreatLevel(results.globalScore).label}
-                        </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+                    {results.virusTotal && (
+                      <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors flex flex-col h-full">
+                        <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
+                          <Shield className="w-5 h-5 text-emerald-400" />
+                          VirusTotal Analysis
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 mt-auto">
+                          <div>
+                            <p className="text-xs text-slate-400">
+                              Malicious
+                            </p>
+                            <p className="text-2xl font-bold text-rose-400">
+                              {results.virusTotal.malicious}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">
+                              Suspicious
+                            </p>
+                            <p className="text-2xl font-bold text-yellow-400">
+                              {results.virusTotal.suspicious}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">Clean</p>
+                            <p className="text-2xl font-bold text-emerald-400">
+                              {results.virusTotal.harmless}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">
+                              Undetected
+                            </p>
+                            <p className="text-2xl font-bold text-slate-400">
+                              {results.virusTotal.undetected}
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="lg:col-span-2 space-y-4">
-                      {results.virusTotal && (
-                        <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors">
-                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-emerald-400" />
-                            VirusTotal Analysis
-                          </h3>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <div>
-                              <p className="text-xs text-slate-400">
-                                Malicious
-                              </p>
-                              <p className="text-2xl font-bold text-rose-400">
-                                {results.virusTotal.malicious}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-slate-400">
-                                Suspicious
-                              </p>
-                              <p className="text-2xl font-bold text-yellow-400">
-                                {results.virusTotal.suspicious}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-slate-400">Clean</p>
-                              <p className="text-2xl font-bold text-emerald-400">
-                                {results.virusTotal.harmless}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-slate-400">
-                                Undetected
-                              </p>
-                              <p className="text-2xl font-bold text-slate-400">
-                                {results.virusTotal.undetected}
-                              </p>
-                            </div>
+                    {results.urlHaus && (
+                      <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors flex flex-col h-full">
+                        <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
+                          <Shield className="w-5 h-5 text-rose-400" />
+                          URLHaus Analysis
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-auto">
+                          <div>
+                            <p className="text-xs text-slate-400">Status</p>
+                            <p
+                              className={`text-xl font-bold ${results.urlHaus.query_status === "ok"
+                                ? results.urlHaus.url_status === "online"
+                                  ? "text-rose-500"
+                                  : "text-yellow-500"
+                                : "text-emerald-400"
+                                }`}
+                            >
+                              {results.urlHaus.query_status === "ok"
+                                ? results.urlHaus.url_status === "online"
+                                  ? "Active Malware"
+                                  : "Offline Malware"
+                                : "Clean / Not Found"}
+                            </p>
                           </div>
-                        </div>
-                      )}
-
-                      {results.urlHaus && (
-                        <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors">
-                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-rose-400" />
-                            URLHaus Analysis
-                          </h3>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-xs text-slate-400">Status</p>
-                              <p
-                                className={`text-xl font-bold ${results.urlHaus.query_status === "ok"
-                                  ? results.urlHaus.url_status === "online"
-                                    ? "text-rose-500"
-                                    : "text-yellow-500"
-                                  : "text-emerald-400"
-                                  }`}
-                              >
-                                {results.urlHaus.query_status === "ok"
-                                  ? results.urlHaus.url_status === "online"
-                                    ? "Active Malware"
-                                    : "Offline Malware"
-                                  : "Clean / Not Found"}
-                              </p>
-                            </div>
-                            {results.urlHaus.query_status === "ok" && (
-                              <>
-                                <div>
-                                  <p className="text-xs text-slate-400">Threat</p>
-                                  <p className="text-sm font-medium text-slate-300">
-                                    {results.urlHaus.threat || "Unknown"}
-                                  </p>
-                                </div>
-                                <div className="col-span-2">
-                                  <p className="text-xs text-slate-400 mb-1">Tags</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {results.urlHaus.tags &&
-                                      results.urlHaus.tags.length > 0 ? (
-                                      results.urlHaus.tags.map((tag, i) => (
-                                        <span
-                                          key={i}
-                                          className="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-300"
-                                        >
-                                          {tag}
-                                        </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-xs text-slate-500">
-                                        No tags
+                          {results.urlHaus.query_status === "ok" && (
+                            <>
+                              <div>
+                                <p className="text-xs text-slate-400">Threat</p>
+                                <p className="text-sm font-medium text-slate-300">
+                                  {results.urlHaus.threat || "Unknown"}
+                                </p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-xs text-slate-400 mb-1">Tags</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {results.urlHaus.tags &&
+                                    results.urlHaus.tags.length > 0 ? (
+                                    results.urlHaus.tags.map((tag, i) => (
+                                      <span
+                                        key={i}
+                                        className="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-300"
+                                      >
+                                        {tag}
                                       </span>
-                                    )}
-                                  </div>
+                                    ))
+                                  ) : (
+                                    <span className="text-xs text-slate-500">
+                                      No tags
+                                    </span>
+                                  )}
                                 </div>
-                              </>
-                            )}
-                          </div>
+                              </div>
+                            </>
+                          )}
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {results.abuseIPDB && (
-                        <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors">
-                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-orange-400" />
-                            AbuseIPDB Report
-                          </h3>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-xs text-slate-400">
-                                Abuse Score
-                              </p>
-                              <p className="text-2xl font-bold text-orange-400">
-                                {results.abuseIPDB.abuseConfidenceScore}%
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-slate-400">
-                                Total Reports
-                              </p>
-                              <p className="text-2xl font-bold text-slate-300">
-                                {results.abuseIPDB.totalReports}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-slate-400">Country</p>
-                              <p className="text-sm font-medium text-slate-300">
-                                {results.abuseIPDB.countryCode}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-slate-400">ISP</p>
-                              <p className="text-sm font-medium text-slate-300 truncate">
-                                {results.abuseIPDB.isp}
-                              </p>
-                            </div>
+                    {results.abuseIPDB && (
+                      <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors flex flex-col h-full">
+                        <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-orange-400" />
+                          AbuseIPDB Report
+                        </h3>
+                        <div className="grid grid-cols-2 gap-4 mt-auto">
+                          <div>
+                            <p className="text-xs text-slate-400">
+                              Abuse Score
+                            </p>
+                            <p className="text-2xl font-bold text-orange-400">
+                              {results.abuseIPDB.abuseConfidenceScore}%
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">
+                              Total Reports
+                            </p>
+                            <p className="text-2xl font-bold text-slate-300">
+                              {results.abuseIPDB.totalReports}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">Country</p>
+                            <p className="text-sm font-medium text-slate-300">
+                              {results.abuseIPDB.countryCode}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400">ISP</p>
+                            <p className="text-sm font-medium text-slate-300 truncate">
+                              {results.abuseIPDB.isp}
+                            </p>
                           </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {results.urlScan && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start mt-6">
                     <ScreenshotCard results={results} />
-                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-slate-700/50 transition-colors">
-                      <h3 className="text-lg font-semibold mb-4">
+                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-slate-700/50 transition-colors h-full flex flex-col">
+                      <h3 className="text-lg font-semibold mb-6">
                         Detected Technologies
                       </h3>
                       {results.urlScan.technologies.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 mt-auto">
                           {results.urlScan.technologies.map((tech, idx) => (
                             <span
                               key={idx}
@@ -509,70 +520,126 @@ export function ThreatDashboard() {
                 </p>
               </div>
             )}
+            {/* Footer */}
+            <footer className="mt-auto py-10 border-t border-slate-900/30 flex flex-col md:flex-row items-center justify-between gap-6 text-slate-500">
+              <div className="flex items-center gap-3 text-xs font-medium tracking-wide">
+                <span className="opacity-40 uppercase tracking-[0.2em] text-[10px]">Developed by</span>
+                <a
+                  href="https://github.com/negoro26"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-slate-400 hover:text-emerald-400 font-bold transition-colors duration-300"
+                >
+                  negoro26
+                </a>
+              </div>
+
+              <div className="flex items-center gap-1 group">
+                <a
+                  href="https://github.com/negoro26/ThreatRadar"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-slate-800/40 rounded-lg hover:text-emerald-400 transition-all duration-300"
+                >
+                  <svg
+                    role="img"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-4 h-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+                  </svg>
+                </a>
+                <a
+                  href="https://negoro26.github.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-slate-800/40 rounded-lg hover:text-emerald-400 transition-all duration-300"
+                >
+                  <Globe className="w-4 h-4" />
+                </a>
+              </div>
+            </footer>
           </div>
         </div>
 
-        {showHistory && (
-          <div className="fixed right-0 top-0 h-full w-80 sm:w-80 md:w-96 bg-slate-950/95 backdrop-blur-2xl border-l border-slate-800/80 shadow-2xl shadow-slate-900/50 overflow-hidden flex flex-col z-[100]">
-            <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-              <h3 className="font-semibold flex items-center gap-2">
-                <History className="w-5 h-5 text-emerald-400" />
-                Scan History
-              </h3>
-              <Button
-                onClick={() => setShowHistory(false)}
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {history.length === 0 ? (
-                <p className="text-slate-500 text-sm text-center py-8">
-                  No scan history yet
+        {/* History Sidebar Overlay for Mobile */}
+        <div
+          className={`fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[90] transition-opacity duration-500 ${showHistory ? "opacity-100" : "opacity-0 pointer-events-none"} xl:hidden`}
+          onClick={() => setShowHistory(false)}
+        />
+
+        {/* Scan History Sidebar */}
+        <aside
+          className={`fixed right-0 top-0 h-full w-full sm:w-80 md:w-96 bg-[#070b14]/95 backdrop-blur-3xl border-l border-slate-800/50 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col z-[100] transition-transform duration-500 ease-in-out transform ${showHistory ? "translate-x-0" : "translate-x-full"}`}
+        >
+          <div className="p-6 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/20">
+            <h3 className="font-bold text-lg flex items-center gap-3 text-emerald-400">
+              <History className="w-5 h-5" />
+              Scan History
+            </h3>
+            <Button
+              onClick={() => setShowHistory(false)}
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full hover:bg-slate-800/50 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3">
+            {history.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 bg-slate-900/50 rounded-full flex items-center justify-center mb-4">
+                  <History className="w-8 h-8 text-slate-700" />
+                </div>
+                <p className="text-slate-500 text-sm font-medium">
+                  Your scan history is empty
                 </p>
-              ) : (
-                history.map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setSearchInput(item.target);
-                      handleScan(item.target);
-                      setShowHistory(false);
-                    }}
-                    className="w-full p-4 bg-slate-800/30 hover:bg-slate-800/60 rounded-xl border border-slate-700/50 text-left transition-all duration-200 hover:border-slate-600/60 group focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  >
-                    <p className="text-sm font-medium text-slate-200 truncate mb-1.5 group-hover:text-emerald-300 transition-colors">
-                      {item.target}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-slate-500">
-                        {new Date(item.timestamp).toLocaleDateString()}
-                      </p>
-                      <span
-                        className={`text-xs font-medium ${getThreatLevel(item.globalScore).color}`}
-                      >
+              </div>
+            ) : (
+              history.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setSearchInput(item.target);
+                    handleScan(item.target);
+                    setShowHistory(false);
+                  }}
+                  className="w-full p-4 bg-slate-800/20 hover:bg-slate-800/40 rounded-2xl border border-slate-800/50 text-left transition-all duration-300 hover:border-emerald-500/30 group focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                >
+                  <p className="text-sm font-bold text-slate-200 truncate mb-2 group-hover:text-emerald-400 transition-colors">
+                    {item.target}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600">
+                      {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-500">Score</span>
+                      <span className={`text-xs font-black ${getThreatLevel(item.globalScore).color}`}>
                         {item.globalScore}
                       </span>
                     </div>
-                  </button>
-                ))
-              )}
-            </div>
-            {history.length > 0 && (
-              <div className="p-4 border-t border-slate-800">
-                <Button
-                  onClick={clearHistory}
-                  className="w-full bg-rose-700 hover:bg-rose-800 text-white px-4 h-12"
-                >
-                  Clear History
-                </Button>
-              </div>
+                  </div>
+                </button>
+              ))
             )}
           </div>
-        )}
+
+          {history.length > 0 && (
+            <div className="p-6 bg-slate-900/20 border-t border-slate-800/50">
+              <Button
+                onClick={clearHistory}
+                className="w-full bg-slate-800/50 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 border border-slate-700/50 rounded-xl transition-all duration-300 h-12 font-bold text-xs uppercase tracking-widest"
+              >
+                Clear History
+              </Button>
+            </div>
+          )}
+        </aside>
       </div>
     </div>
   );
