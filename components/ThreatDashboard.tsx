@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, Shield, AlertTriangle, History, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Shield, AlertTriangle, History, X, Loader2 } from "lucide-react";
 import {
-  scanTarget,
+  scanTargetFast,
+  scanURLScanAsync,
   ThreatIntelligenceResult,
 } from "@/app/actions/threat-intel";
+import { calculateGlobalScore } from "@/lib/scoring";
 import { SafetyGauge } from "./SafetyGauge";
 import { ScreenshotCard } from "./ScreenshotCard";
 import { ThreatDataTabs } from "./ThreatDataTabs";
@@ -18,9 +20,11 @@ interface SearchHistory extends ThreatIntelligenceResult { }
 export function ThreatDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [isLoadingURLScan, setIsLoadingURLScan] = useState(false);
   const [results, setResults] = useState<ThreatIntelligenceResult | null>(null);
   const [history, setHistory] = useState<SearchHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const urlScanAbortRef = useRef<boolean>(false);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem("threat-scan-history");
@@ -43,7 +47,21 @@ export function ThreatDashboard() {
     const targetToScan = target || searchInput;
     if (!targetToScan.trim()) return;
 
-    const cachedResult = history.find((h) => h.target === targetToScan);
+    // Abort any in-flight URLScan from a previous scan
+    urlScanAbortRef.current = true;
+
+    // Normalize the target for cache comparison — cached entries store
+    // the cleaned URL (e.g. "https://google.com"), not raw input ("google.com")
+    let normalizedTarget = targetToScan.trim();
+    if (
+      !normalizedTarget.startsWith("http://") &&
+      !normalizedTarget.startsWith("https://") &&
+      !/^\d{1,3}(\.\d{1,3}){3}$/.test(normalizedTarget)
+    ) {
+      normalizedTarget = "https://" + normalizedTarget;
+    }
+
+    const cachedResult = history.find((h) => h.target === normalizedTarget);
 
     const CACHE_DURATION = 60 * 60 * 1000;
 
@@ -53,23 +71,75 @@ export function ThreatDashboard() {
       if (isFresh) {
         console.log("HIT: Loading result from cache");
         setResults(cachedResult);
+        setIsLoadingURLScan(false);
         return;
       } else {
         console.log("Cache expired. Calling API");
       }
     }
+
     setIsScanning(true);
+    setIsLoadingURLScan(false);
     setResults(null);
 
     try {
-      const result = await scanTarget(targetToScan);
-      setResults(result);
-      if (result.success) {
-        saveToHistory(result);
+      // Phase 1: Fast scan (VirusTotal, AbuseIPDB, URLHaus) — ~1 second
+      const fastResult = await scanTargetFast(targetToScan);
+      setResults(fastResult);
+      setIsScanning(false);
+
+      if (fastResult.success) {
+        saveToHistory(fastResult);
+      }
+
+      // Use the cleaned target from the server result (e.g. "https://google.com")
+      // instead of raw input (e.g. "google.com") so comparisons match
+      const cleanedTarget = fastResult.target;
+
+      // Phase 2: URLScan in the background (only for URL targets)
+      if (fastResult.success && fastResult.type === "url") {
+        setIsLoadingURLScan(true);
+        urlScanAbortRef.current = false;
+
+        // Fire and forget — this runs independently
+        scanURLScanAsync(cleanedTarget).then((urlScanData) => {
+          // If user started a new scan in the meantime, discard this result
+          if (urlScanAbortRef.current) return;
+
+          setIsLoadingURLScan(false);
+
+          if (urlScanData) {
+            // Merge URLScan data into existing results and recalculate score
+            setResults((prev) => {
+              if (!prev || prev.target !== cleanedTarget) return prev;
+
+              const newScore = calculateGlobalScore(
+                prev.virusTotal || null,
+                prev.abuseIPDB || null,
+                urlScanData,
+                prev.urlHaus || null,
+              );
+
+              const updated: ThreatIntelligenceResult = {
+                ...prev,
+                urlScan: urlScanData,
+                globalScore: newScore,
+              };
+
+              // Update cache with complete data
+              saveToHistory(updated);
+              return updated;
+            });
+          }
+        }).catch((error) => {
+          console.error("URLScan background error:", error);
+          if (!urlScanAbortRef.current) {
+            setIsLoadingURLScan(false);
+          }
+        });
       }
     } catch (error) {
       console.error("Scan error:", error);
-    } finally {
       setIsScanning(false);
     }
   };
@@ -88,10 +158,10 @@ export function ThreatDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="flex">
+    <div className="min-h-screen bg-[#070b14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(16,185,129,0.1),transparent)] text-slate-100 overflow-x-hidden relative">
+      <div className="flex w-full">
         <div
-          className={`flex-1 transition-all duration-300 ${showHistory ? "mr-80" : ""}`}
+          className={`flex-1 min-w-0 transition-all duration-300 ${showHistory ? "xl:mr-80" : ""}`}
         >
           <div className="container mx-auto px-4 py-8">
             <div className="mb-8">
@@ -108,28 +178,28 @@ export function ThreatDashboard() {
 
             <div className="mb-8">
               <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                <div className="flex-1 relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
                   <Input
                     type="text"
                     placeholder="Enter URL or IP address (e.g., example.com or 8.8.8.8)"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleScan()}
-                    className="pl-10 bg-slate-900 border-slate-800 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:ring-emerald-500/20 h-12"
+                    className="pl-12 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 h-14 rounded-2xl text-lg shadow-inner transition-all duration-300"
                     disabled={isScanning}
                   />
                 </div>
                 <Button
                   onClick={() => handleScan()}
                   disabled={isScanning || !searchInput.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 h-12 font-medium"
+                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 h-14 rounded-2xl font-bold shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all duration-300 disabled:opacity-50 disabled:shadow-none"
                 >
                   {isScanning ? "Scanning..." : "Scan"}
                 </Button>
                 <Button
                   onClick={() => setShowHistory(!showHistory)}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 h-12"
+                  className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 px-5 h-14 rounded-2xl backdrop-blur-sm transition-all duration-300"
                 >
                   <History className="w-5 h-5" />
                 </Button>
@@ -137,20 +207,20 @@ export function ThreatDashboard() {
             </div>
 
             {isScanning && (
-              <div className="space-y-6">
-                <LoadingShimmer className="h-64 rounded-lg" />
+              <div className="space-y-6 animate-pulse-slow">
+                <LoadingShimmer className="h-40 lg:h-48 rounded-2xl" />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <LoadingShimmer className="h-80 rounded-lg" />
-                  <LoadingShimmer className="h-80 rounded-lg" />
+                  <LoadingShimmer className="h-[28rem] rounded-2xl" />
+                  <LoadingShimmer className="h-[28rem] rounded-2xl" />
                 </div>
-                <LoadingShimmer className="h-96 rounded-lg" />
+                <LoadingShimmer className="h-96 rounded-2xl" />
               </div>
             )}
 
             {!isScanning && results && (
               <div className="space-y-6">
-                <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
-                  <div className="flex items-start justify-between mb-4">
+                <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl">
+                  <div className="flex items-start justify-between mb-6">
                     <div>
                       <h2 className="text-xl font-semibold mb-1">
                         Scan Results
@@ -176,16 +246,16 @@ export function ThreatDashboard() {
                   </div>
 
                   {results.errors && results.errors.length > 0 && (
-                    <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-5 h-5 text-yellow-500 mt-0.5" />
+                    <div className="mb-6 p-4 sm:p-5 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl backdrop-blur-sm text-yellow-100">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-sm text-yellow-500 font-medium mb-1">
+                          <p className="text-sm font-semibold mb-1 text-yellow-400 drop-shadow-sm">
                             Partial Results
                           </p>
-                          <p className="text-xs text-slate-400">
+                          <p className="text-sm opacity-90 leading-relaxed">
                             Some services encountered errors:{" "}
-                            {results.errors.join(", ")}
+                            <span className="font-medium">{results.errors.join(", ")}</span>
                           </p>
                         </div>
                       </div>
@@ -209,8 +279,8 @@ export function ThreatDashboard() {
 
                     <div className="lg:col-span-2 space-y-4">
                       {results.virusTotal && (
-                        <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors">
+                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                             <Shield className="w-4 h-4 text-emerald-400" />
                             VirusTotal Analysis
                           </h3>
@@ -250,8 +320,8 @@ export function ThreatDashboard() {
                       )}
 
                       {results.urlHaus && (
-                        <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors">
+                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                             <Shield className="w-4 h-4 text-rose-400" />
                             URLHaus Analysis
                           </h3>
@@ -308,8 +378,8 @@ export function ThreatDashboard() {
                       )}
 
                       {results.abuseIPDB && (
-                        <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors">
+                          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
                             <AlertTriangle className="w-4 h-4 text-orange-400" />
                             AbuseIPDB Report
                           </h3>
@@ -350,9 +420,9 @@ export function ThreatDashboard() {
                 </div>
 
                 {results.urlScan && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                     <ScreenshotCard results={results} />
-                    <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-slate-700/50 transition-colors">
                       <h3 className="text-lg font-semibold mb-4">
                         Detected Technologies
                       </h3>
@@ -396,6 +466,34 @@ export function ThreatDashboard() {
                   </div>
                 )}
 
+                {!results.urlScan && isLoadingURLScan && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-cyan-900/10 to-transparent"></div>
+                      <div className="relative">
+                        <div className="flex items-center gap-3 mb-5">
+                          <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
+                          <h3 className="text-lg font-semibold text-slate-200">Loading Screenshot...</h3>
+                        </div>
+                        <LoadingShimmer className="h-56 rounded-2xl" />
+                        <p className="text-sm text-slate-400 mt-4 leading-relaxed">
+                          URLScan is actively browsing the target — this can take 10-30 seconds
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-tr from-emerald-900/10 to-transparent"></div>
+                      <div className="relative">
+                        <div className="flex items-center gap-3 mb-5">
+                          <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                          <h3 className="text-lg font-semibold text-slate-200">Detecting Technologies...</h3>
+                        </div>
+                        <LoadingShimmer className="h-32 rounded-2xl" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <ThreatDataTabs results={results} />
               </div>
             )}
@@ -415,8 +513,8 @@ export function ThreatDashboard() {
         </div>
 
         {showHistory && (
-          <div className="fixed right-0 top-0 h-full w-80 bg-slate-900 border-l border-slate-800 shadow-2xl overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <div className="fixed right-0 top-0 h-full w-80 sm:w-80 md:w-96 bg-slate-950/95 backdrop-blur-2xl border-l border-slate-800/80 shadow-2xl shadow-slate-900/50 overflow-hidden flex flex-col z-[100]">
+            <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
               <h3 className="font-semibold flex items-center gap-2">
                 <History className="w-5 h-5 text-emerald-400" />
                 Scan History
@@ -444,9 +542,9 @@ export function ThreatDashboard() {
                       handleScan(item.target);
                       setShowHistory(false);
                     }}
-                    className="w-full p-3 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 text-left transition-colors"
+                    className="w-full p-4 bg-slate-800/30 hover:bg-slate-800/60 rounded-xl border border-slate-700/50 text-left transition-all duration-200 hover:border-slate-600/60 group focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   >
-                    <p className="text-sm text-slate-300 truncate mb-1">
+                    <p className="text-sm font-medium text-slate-200 truncate mb-1.5 group-hover:text-emerald-300 transition-colors">
                       {item.target}
                     </p>
                     <div className="flex items-center justify-between">

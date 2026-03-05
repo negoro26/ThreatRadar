@@ -2,6 +2,7 @@
 
 import { isIP } from "net";
 import { promises as dns } from "dns";
+import { calculateGlobalScore } from "@/lib/scoring";
 
 export interface VirusTotalData {
   malicious: number;
@@ -123,6 +124,7 @@ async function fetchVirusTotal(
       headers: {
         "x-apikey": apiKey,
       },
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -162,6 +164,7 @@ async function fetchAbuseIPDB(ip: string): Promise<AbuseIPDBData | null> {
           Key: apiKey,
           Accept: "application/json",
         },
+        cache: "no-store",
       },
     );
 
@@ -206,6 +209,7 @@ async function fetchURLScan(url: string): Promise<URLScanData | null> {
         url: url,
         visibility: "unlisted",
       }),
+      cache: "no-store",
     });
 
     if (submitResponse.status === 429) {
@@ -287,14 +291,17 @@ async function fetchURLHaus(url: string): Promise<URLHausData | null> {
       headers["Auth-Key"] = apiKey;
     }
 
+    console.log(`[URLHaus] Querying URL: ${url}`);
+
     const response = await fetch("https://urlhaus-api.abuse.ch/v1/url/", {
       method: "POST",
       headers: headers,
       body: formData,
+      cache: "no-store",
     });
 
     if (!response.ok) {
-      // 404 from URLHaus often means "not found in database" which is good, 
+      // 404 from URLHaus often means "not found in database" which is good,
       // but the API usually returns 200 with query_status: "no_results"
       if (response.status === 404) {
         return null;
@@ -303,6 +310,7 @@ async function fetchURLHaus(url: string): Promise<URLHausData | null> {
     }
 
     const data: URLHausData = await response.json();
+    console.log(`[URLHaus] Response for ${url}:`, JSON.stringify(data));
     return data;
   } catch (error) {
     console.error("URLHaus fetch error:", error);
@@ -310,71 +318,14 @@ async function fetchURLHaus(url: string): Promise<URLHausData | null> {
   }
 }
 
-function calculateGlobalScore(
-  virusTotal: VirusTotalData | null,
-  abuseIPDB: AbuseIPDBData | null,
-  urlScan: URLScanData | null,
-  urlHaus: URLHausData | null,
-): number {
-  // Immediate return 0 if URLHaus confirms active malware
-  if (urlHaus?.query_status === "ok" && urlHaus?.url_status === "online") {
-    return 0;
-  }
+// calculateGlobalScore is imported from @/lib/scoring
 
-  let totalScore = 100;
-  let weights = 0;
-
-  if (virusTotal) {
-    const total =
-      virusTotal.malicious +
-      virusTotal.suspicious +
-      virusTotal.harmless +
-      virusTotal.undetected;
-    if (total > 0) {
-      const vtScore =
-        100 - (virusTotal.malicious * 100 + virusTotal.suspicious * 50) / total;
-      totalScore += vtScore * 0.4;
-      weights += 0.4;
-    }
-  }
-
-  if (abuseIPDB) {
-    const abuseScore = 100 - abuseIPDB.abuseConfidenceScore;
-    totalScore += abuseScore * 0.3;
-    weights += 0.3;
-  }
-
-  if (urlScan) {
-    const scanScore = urlScan.verdict.malicious
-      ? 0
-      : 100 - urlScan.verdict.score;
-    totalScore += scanScore * 0.3;
-    weights += 0.3;
-  }
-
-  if (urlHaus) {
-    if (urlHaus.query_status === "ok") {
-      // url_status: "offline" or "unknown" (online already handled above)
-      if (urlHaus.url_status === "offline") {
-        totalScore += 20;
-        weights += 0.3;
-      } else {
-        // Unknown status but listed
-        totalScore += 10;
-        weights += 0.4;
-      }
-    } else if (urlHaus.query_status === "no_results") {
-      totalScore += 100 * 0.3;
-      weights += 0.3;
-    }
-  }
-
-  if (weights === 0) return 50;
-
-  return Math.round(totalScore / (1 + weights));
-}
-
-export async function scanTarget(
+/**
+ * Fast scan: calls VirusTotal, AbuseIPDB, and URLHaus.
+ * These are passive lookups and respond in ~1 second.
+ * URLScan is excluded because it actively browses the URL (10-40s).
+ */
+export async function scanTargetFast(
   target: string,
 ): Promise<ThreatIntelligenceResult> {
   let cleanTarget = target.trim();
@@ -402,12 +353,10 @@ export async function scanTarget(
 
   try {
     const resolvedIP = type === "ip" ? cleanTarget : await resolveHostname(cleanTarget);
-    // needed as AbuseIPDB only accepts IP addresses for its API
 
     const results = await Promise.allSettled([
       fetchVirusTotal(cleanTarget, type),
       resolvedIP ? fetchAbuseIPDB(resolvedIP) : Promise.resolve(null),
-      type === "url" ? fetchURLScan(cleanTarget) : Promise.resolve(null),
       type === "url" ? fetchURLHaus(cleanTarget) : Promise.resolve(null),
     ]);
 
@@ -415,16 +364,14 @@ export async function scanTarget(
       results[0].status === "fulfilled" ? results[0].value : null;
     const abuseIPDB =
       results[1].status === "fulfilled" ? results[1].value : null;
-    const urlScan = results[2].status === "fulfilled" ? results[2].value : null;
-    const urlHaus = results[3].status === "fulfilled" ? results[3].value : null;
+    const urlHaus = results[2].status === "fulfilled" ? results[2].value : null;
 
-    const globalScore = calculateGlobalScore(virusTotal, abuseIPDB, urlScan, urlHaus);
+    const globalScore = calculateGlobalScore(virusTotal, abuseIPDB, null, urlHaus);
 
     const errors: string[] = [];
     if (results[0].status === "rejected") errors.push("VirusTotal failed");
     if (results[1].status === "rejected") errors.push("AbuseIPDB failed");
-    if (results[2].status === "rejected") errors.push("URLScan failed");
-    if (results[3].status === "rejected") errors.push("URLHaus failed");
+    if (results[2].status === "rejected") errors.push("URLHaus failed");
 
     return {
       success: true,
@@ -433,7 +380,6 @@ export async function scanTarget(
       globalScore,
       virusTotal: virusTotal || undefined,
       abuseIPDB: abuseIPDB || undefined,
-      urlScan: urlScan || undefined,
       urlHaus: urlHaus || undefined,
       errors: errors.length > 0 ? errors : undefined,
       timestamp: Date.now(),
@@ -447,5 +393,28 @@ export async function scanTarget(
       errors: [error instanceof Error ? error.message : "Unknown error"],
       timestamp: Date.now(),
     };
+  }
+}
+
+/**
+ * Async URLScan: runs independently after the fast scan.
+ * Returns URLScanData or null. The frontend can merge this
+ * into the existing results and recalculate the global score.
+ */
+export async function scanURLScanAsync(
+  target: string,
+): Promise<URLScanData | null> {
+  try {
+    let cleanTarget = target.trim();
+    if (
+      !cleanTarget.startsWith("http://") &&
+      !cleanTarget.startsWith("https://")
+    ) {
+      cleanTarget = "https://" + cleanTarget;
+    }
+    return await fetchURLScan(cleanTarget);
+  } catch (error) {
+    console.error("URLScan async error:", error);
+    return null;
   }
 }
