@@ -117,6 +117,10 @@ async function fetchVirusTotal(
       const urlId = Buffer.from(target).toString("base64").replace(/=/g, "");
       endpoint = `https://www.virustotal.com/api/v3/urls/${urlId}`;
     } else {
+      // Explicitly re-validate IP before using it in the URL to satisfy CodeQL
+      if (!isValidIP(target)) {
+        throw new Error("Invalid IP address for VirusTotal lookup");
+      }
       endpoint = `https://www.virustotal.com/api/v3/ip_addresses/${target}`;
     }
 
@@ -155,6 +159,11 @@ async function fetchAbuseIPDB(ip: string): Promise<AbuseIPDBData | null> {
     if (!apiKey) {
       console.warn("AbuseIPDB API key not configured");
       return null;
+    }
+
+    // Explicitly re-validate IP before using it in the URL
+    if (!isValidIP(ip)) {
+      throw new Error("Invalid IP address for AbuseIPDB lookup");
     }
 
     const response = await fetch(
@@ -223,6 +232,11 @@ async function fetchURLScan(url: string): Promise<URLScanData | null> {
 
     const submitData = await submitResponse.json();
     const resultUrl = submitData.api;
+
+    // Safety check for dynamic URL to satisfy CodeQL SSRF rules
+    if (!resultUrl || typeof resultUrl !== "string" || !resultUrl.startsWith("https://urlscan.io/api/v1/")) {
+      throw new Error("Invalid result URL returned from URLScan");
+    }
 
     await new Promise((resolve) => setTimeout(resolve, 10000));
 
