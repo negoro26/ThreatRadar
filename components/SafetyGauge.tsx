@@ -37,8 +37,8 @@ export function SafetyGauge({ score }: SafetyGaugeProps) {
   const offset = circumference - (animatedScore / 100) * circumference;
 
   return (
-    <div className="relative w-full aspect-square max-w-[200px] mx-auto">
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+    <div className="relative w-full aspect-square max-w-[200px] mx-auto" role="img" aria-label={`Safety score gauge: ${score} out of 100`}>
+      <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160" aria-hidden="true">
         <circle
           cx="80"
           cy="80"

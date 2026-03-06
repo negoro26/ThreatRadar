@@ -39,7 +39,7 @@ export function ScreenshotCard({ results }: ScreenshotCardProps) {
         <div className="relative w-full aspect-video bg-slate-900/50 rounded-2xl overflow-hidden border border-slate-700/50 shadow-inner group">
           <img
             src={urlScan.screenshotUrl}
-            alt="Page screenshot"
+            alt={`Live screenshot of ${results.target}`}
             className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
           />
         </div>

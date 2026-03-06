@@ -271,9 +271,9 @@ export function ThreatDashboard() {
                     }`}>
                     <div className="flex-1 text-center md:text-left">
                       <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3">Overall Verdict</h3>
-                      <h2 className={`text-5xl md:text-6xl font-black tracking-tight mb-4 drop-shadow-lg ${getThreatLevel(results.globalScore).color}`}>
+                      <p className={`text-5xl md:text-6xl font-black tracking-tight mb-4 drop-shadow-lg ${getThreatLevel(results.globalScore).color}`}>
                         {getThreatLevel(results.globalScore).label}
-                      </h2>
+                      </p>
                       <p className="text-slate-300 text-lg max-w-xl leading-relaxed mx-auto md:mx-0">
                         {results.globalScore >= 80 ? "This target appears to be clean and safe to visit." :
                           results.globalScore >= 60 ? "Low risk detected. Proceed with normal caution." :
