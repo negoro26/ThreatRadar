@@ -1,4 +1,4 @@
-~"use client";
+"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { Search, Shield, AlertTriangle, History, X, Loader2, Globe } from "lucide-react";
