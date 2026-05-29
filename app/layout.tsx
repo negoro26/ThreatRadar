@@ -1,9 +1,10 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import Script from 'next/script';
-import { Inter } from 'next/font/google';
+import { Inter, JetBrains_Mono } from 'next/font/google';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
   title: 'ThreatRadar | Professional Threat Intelligence & Vulnerability Scanning',
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: '#10b981', // Emerald-500 matching the brand
+  themeColor: '#38BDF8',
   width: 'device-width',
   initialScale: 1,
 };
@@ -53,8 +54,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="dark">
+      <body className={`${inter.variable} ${jetbrainsMono.variable} ${inter.className}`}>
         {children}
         <Script id="structured-data" type="application/ld+json" strategy="afterInteractive">
           {JSON.stringify({

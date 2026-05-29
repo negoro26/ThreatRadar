@@ -1,4 +1,4 @@
-"use client";
+~"use client";
 
 import { useState, useEffect, useRef } from "react";
 import { Search, Shield, AlertTriangle, History, X, Loader2, Globe } from "lucide-react";
@@ -8,8 +8,8 @@ import {
   ThreatIntelligenceResult,
 } from "@/app/actions/threat-intel";
 import { calculateGlobalScore } from "@/lib/scoring";
-import { SafetyGauge } from "./SafetyGauge";
-import { ScreenshotCard } from "./ScreenshotCard";
+import { SafetyScoreBadge } from "./dashboard/SafetyScoreBadge";
+import { ScanResultCard } from "./dashboard/ScanResultCard";
 import { ThreatDataTabs } from "./ThreatDataTabs";
 import { LoadingShimmer } from "./LoadingShimmer";
 import { Button } from "./ui/button";
@@ -149,357 +149,278 @@ export function ThreatDashboard() {
     localStorage.removeItem("threat-scan-history");
   };
 
-  const getThreatLevel = (score: number) => {
-    if (score >= 80) return { label: "Safe", color: "text-emerald-400" };
-    if (score >= 60) return { label: "Low Risk", color: "text-emerald-500" };
-    if (score >= 40) return { label: "Moderate", color: "text-yellow-500" };
-    if (score >= 20) return { label: "High Risk", color: "text-orange-500" };
-    return { label: "Critical", color: "text-rose-500" };
+  const getRelativeTime = (timestamp: number) => {
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(16,185,129,0.1),transparent)] text-slate-100 overflow-x-hidden relative">
+    <div className="min-h-screen bg-background text-foreground overflow-x-hidden relative">
       <div className="flex w-full">
         <div
-          className={`flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-500 ease-in-out ${showHistory ? "xl:mr-96" : ""}`}
+          className={`flex-1 min-w-0 flex flex-col min-h-screen transition-all duration-300 ${showHistory ? "xl:mr-96" : ""}`}
         >
-          <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
-            <div className="mb-8">
-              <div className="flex items-center gap-3 mb-2">
-                <Shield className="w-8 h-8 text-emerald-400" />
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                  Threat Intelligence Dashboard
+          <div className="max-w-6xl w-full mx-auto px-4 py-6 flex-1 flex flex-col">
+            {/* Header — left-aligned, compact */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield className="w-5 h-5 text-primary" />
+                <h1 className="text-lg font-semibold text-foreground">
+                  ThreatRadar
                 </h1>
               </div>
-              <p className="text-slate-400 text-sm">
-                Comprehensive vulnerability scanning and threat analysis
+              <p className="text-xs text-muted">
+                Threat intelligence aggregation — VirusTotal, AbuseIPDB, URLScan, URLHaus
               </p>
             </div>
 
-            <div className="mb-8">
-              <div className="flex gap-3">
-                <div className="flex-1 relative group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-emerald-400 transition-colors" />
+            {/* Search — full-width, no decoration */}
+            <div className="mb-6">
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                   <Input
                     type="text"
                     placeholder="Enter URL or IP address (e.g., example.com or 8.8.8.8)"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleScan()}
-                    className="pl-12 bg-slate-900/60 backdrop-blur-md border border-slate-800/80 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500/50 focus:ring-emerald-500/20 h-14 rounded-2xl text-lg shadow-inner transition-all duration-300"
+                    className="pl-9 bg-card border-border text-foreground placeholder:text-muted h-10 rounded-md text-sm font-mono-data"
                     disabled={isScanning}
                   />
                 </div>
                 <Button
                   onClick={() => handleScan()}
                   disabled={isScanning || !searchInput.trim()}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 h-14 rounded-2xl font-bold shadow-[0_0_20px_rgba(16,185,129,0.25)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)] transition-all duration-300 disabled:opacity-50 disabled:shadow-none"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-5 h-10 rounded-md font-semibold text-sm"
                 >
-                  {isScanning ? "Scanning..." : "Scan"}
+                  {isScanning ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                      Scanning
+                    </>
+                  ) : (
+                    "Scan"
+                  )}
                 </Button>
                 <Button
                   onClick={() => setShowHistory(!showHistory)}
-                  className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/60 px-5 h-14 rounded-2xl backdrop-blur-sm transition-all duration-300"
+                  variant="outline"
+                  className="border-border text-muted-foreground hover:text-foreground hover:bg-secondary h-10 rounded-md px-3"
                 >
-                  <History className="w-5 h-5" />
+                  <History className="w-4 h-4" />
                 </Button>
               </div>
             </div>
 
+            {/* Loading skeleton — matches data layout */}
             {isScanning && (
-              <div className="space-y-6 animate-pulse-slow">
-                <LoadingShimmer className="h-40 lg:h-48 rounded-2xl" />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <LoadingShimmer className="h-[28rem] rounded-2xl" />
-                  <LoadingShimmer className="h-[28rem] rounded-2xl" />
+              <div className="space-y-4">
+                <LoadingShimmer className="h-10 rounded-md" />
+                <div className="grid grid-cols-1 md:grid-cols-[40%_1fr] gap-4 p-4 border border-border rounded-md">
+                  <LoadingShimmer className="aspect-video rounded-sm" />
+                  <div className="space-y-3">
+                    <LoadingShimmer className="h-4 w-3/4 rounded-sm" />
+                    <LoadingShimmer className="h-4 w-1/2 rounded-sm" />
+                    <LoadingShimmer className="h-4 w-2/3 rounded-sm" />
+                    <LoadingShimmer className="h-4 w-1/3 rounded-sm" />
+                  </div>
                 </div>
-                <LoadingShimmer className="h-96 rounded-2xl" />
+                <LoadingShimmer className="h-48 rounded-md" />
               </div>
             )}
 
+            {/* Results */}
             {!isScanning && results && (
-              <div className="space-y-6">
-                <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl">
-                  <div className="flex items-start justify-between mb-6">
+              <div className="space-y-4">
+                {/* Result header */}
+                <div className="flex items-center justify-between p-4 bg-card border border-border rounded-md">
+                  <div className="flex items-center gap-3">
+                    <SafetyScoreBadge score={results.globalScore} />
                     <div>
-                      <h2 className="text-xl font-semibold mb-1">
-                        Scan Results
-                      </h2>
-                      <p className="text-sm text-slate-400">{results.target}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Type: {results.type.toUpperCase()} • Scanned at{" "}
-                        {new Date(results.timestamp).toLocaleString()}
+                      <p className="font-mono-data text-sm text-foreground">{results.target}</p>
+                      <p className="font-mono-data text-xs text-muted">
+                        {results.type.toUpperCase()} • {getRelativeTime(results.timestamp)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {results.type === "url" && (
-                        <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-full text-xs font-medium">
-                          URL
-                        </span>
-                      )}
-                      {results.type === "ip" && (
-                        <span className="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-full text-xs font-medium">
-                          IP
-                        </span>
-                      )}
+                  </div>
+                  <span className="font-mono-data text-xs text-muted border border-border rounded-sm px-2 py-0.5">
+                    {results.type === "url" ? "URL" : "IP"}
+                  </span>
+                </div>
+
+                {/* Errors — specific, not generic */}
+                {results.errors && results.errors.length > 0 && (
+                  <div className="p-3 bg-warning/5 border border-warning/20 rounded-md">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-semibold text-warning mb-1">Partial Results</p>
+                        {results.errors.map((error, idx) => (
+                          <p key={idx} className="font-mono-data text-xs text-destructive">{error}</p>
+                        ))}
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  {results.errors && results.errors.length > 0 && (
-                    <div className="mb-6 p-4 sm:p-5 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl backdrop-blur-sm text-yellow-100">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" />
+                {/* Source cards — compact grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {results.virusTotal && (
+                    <div className="p-4 bg-card border border-border rounded-md">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
+                        <Shield className="w-4 h-4" />
+                        VirusTotal
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <p className="text-sm font-semibold mb-1 text-yellow-400 drop-shadow-sm">
-                            Partial Results
+                          <p className="text-[11px] text-muted">Malicious</p>
+                          <p className="font-mono-data text-lg font-bold text-destructive">
+                            {results.virusTotal.malicious}
                           </p>
-                          <p className="text-sm opacity-90 leading-relaxed">
-                            Some services encountered errors:{" "}
-                            <span className="font-medium">{results.errors.join(", ")}</span>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-muted">Suspicious</p>
+                          <p className="font-mono-data text-lg font-bold text-warning">
+                            {results.virusTotal.suspicious}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-muted">Clean</p>
+                          <p className="font-mono-data text-lg font-bold text-success">
+                            {results.virusTotal.harmless}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-muted">Undetected</p>
+                          <p className="font-mono-data text-lg font-bold text-muted-foreground">
+                            {results.virusTotal.undetected}
                           </p>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Verdict Banner */}
-                  <div className={`p-6 sm:p-10 rounded-3xl border backdrop-blur-xl mb-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl transition-all duration-500 ${results.globalScore >= 80 ? "bg-emerald-900/10 border-emerald-500/30 shadow-emerald-500/10" :
-                    results.globalScore >= 60 ? "bg-emerald-900/5 border-emerald-500/20 shadow-emerald-500/5" :
-                      results.globalScore >= 40 ? "bg-yellow-900/10 border-yellow-500/30 shadow-yellow-500/10" :
-                        results.globalScore >= 20 ? "bg-orange-900/10 border-orange-500/30 shadow-orange-500/10" :
-                          "bg-rose-900/10 border-rose-500/30 shadow-rose-500/10"
-                    }`}>
-                    <div className="flex-1 text-center md:text-left">
-                      <h3 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3">Overall Verdict</h3>
-                      <p className={`text-5xl md:text-6xl font-black tracking-tight mb-4 drop-shadow-lg ${getThreatLevel(results.globalScore).color}`}>
-                        {getThreatLevel(results.globalScore).label}
-                      </p>
-                      <p className="text-slate-300 text-lg max-w-xl leading-relaxed mx-auto md:mx-0">
-                        {results.globalScore >= 80 ? "This target appears to be clean and safe to visit." :
-                          results.globalScore >= 60 ? "Low risk detected. Proceed with normal caution." :
-                            results.globalScore >= 40 ? "Moderate risk detected. Multiple sources have flagged minor or historical issues." :
-                              results.globalScore >= 20 ? "High risk detected. Proceed with extreme caution." :
-                                "Critical threat detected. This target is actively malicious or highly dangerous."}
-                      </p>
-                    </div>
-
-                    <div className="flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 relative group">
-                      <div className="absolute inset-0 bg-current opacity-10 blur-3xl rounded-full transition-all duration-500 group-hover:scale-110"></div>
-                      <SafetyGauge score={results.globalScore} />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-                    {results.virusTotal && (
-                      <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors flex flex-col h-full">
-                        <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
-                          <Shield className="w-5 h-5 text-emerald-400" />
-                          VirusTotal Analysis
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 mt-auto">
-                          <div>
-                            <p className="text-xs text-slate-400">
-                              Malicious
-                            </p>
-                            <p className="text-2xl font-bold text-rose-400">
-                              {results.virusTotal.malicious}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400">
-                              Suspicious
-                            </p>
-                            <p className="text-2xl font-bold text-yellow-400">
-                              {results.virusTotal.suspicious}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400">Clean</p>
-                            <p className="text-2xl font-bold text-emerald-400">
-                              {results.virusTotal.harmless}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400">
-                              Undetected
-                            </p>
-                            <p className="text-2xl font-bold text-slate-400">
-                              {results.virusTotal.undetected}
-                            </p>
-                          </div>
+                  {results.urlHaus && (
+                    <div className="p-4 bg-card border border-border rounded-md">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
+                        <Shield className="w-4 h-4" />
+                        URLHaus
+                      </h3>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-[11px] text-muted">Status</p>
+                          <p
+                            className={`font-mono-data text-sm font-bold ${results.urlHaus.query_status === "ok"
+                              ? results.urlHaus.url_status === "online"
+                                ? "text-destructive"
+                                : "text-warning"
+                              : "text-success"
+                              }`}
+                          >
+                            {results.urlHaus.query_status === "ok"
+                              ? results.urlHaus.url_status === "online"
+                                ? "Active Malware"
+                                : "Offline Malware"
+                              : "Clean / Not Found"}
+                          </p>
                         </div>
-                      </div>
-                    )}
-
-                    {results.urlHaus && (
-                      <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors flex flex-col h-full">
-                        <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
-                          <Shield className="w-5 h-5 text-rose-400" />
-                          URLHaus Analysis
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-auto">
-                          <div>
-                            <p className="text-xs text-slate-400">Status</p>
-                            <p
-                              className={`text-xl font-bold ${results.urlHaus.query_status === "ok"
-                                ? results.urlHaus.url_status === "online"
-                                  ? "text-rose-500"
-                                  : "text-yellow-500"
-                                : "text-emerald-400"
-                                }`}
-                            >
-                              {results.urlHaus.query_status === "ok"
-                                ? results.urlHaus.url_status === "online"
-                                  ? "Active Malware"
-                                  : "Offline Malware"
-                                : "Clean / Not Found"}
-                            </p>
-                          </div>
-                          {results.urlHaus.query_status === "ok" && (
-                            <>
-                              <div>
-                                <p className="text-xs text-slate-400">Threat</p>
-                                <p className="text-sm font-medium text-slate-300">
-                                  {results.urlHaus.threat || "Unknown"}
-                                </p>
-                              </div>
-                              <div className="col-span-2">
-                                <p className="text-xs text-slate-400 mb-1">Tags</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {results.urlHaus.tags &&
-                                    results.urlHaus.tags.length > 0 ? (
-                                    results.urlHaus.tags.map((tag, i) => (
-                                      <span
-                                        key={i}
-                                        className="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-300"
-                                      >
-                                        {tag}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="text-xs text-slate-500">
-                                      No tags
+                        {results.urlHaus.query_status === "ok" && (
+                          <>
+                            <div>
+                              <p className="text-[11px] text-muted">Threat</p>
+                              <p className="font-mono-data text-sm text-foreground">
+                                {results.urlHaus.threat || "Unknown"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] text-muted mb-1">Tags</p>
+                              <div className="flex flex-wrap gap-1">
+                                {results.urlHaus.tags &&
+                                  results.urlHaus.tags.length > 0 ? (
+                                  results.urlHaus.tags.map((tag, i) => (
+                                    <span
+                                      key={i}
+                                      className="font-mono-data px-1.5 py-0.5 border border-border rounded-sm text-[11px] text-foreground"
+                                    >
+                                      {tag}
                                     </span>
-                                  )}
-                                </div>
+                                  ))
+                                ) : (
+                                  <span className="text-[11px] text-muted">
+                                    No tags
+                                  </span>
+                                )}
                               </div>
-                            </>
-                          )}
-                        </div>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {results.abuseIPDB && (
-                      <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 hover:border-slate-600/60 transition-colors flex flex-col h-full">
-                        <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
-                          <AlertTriangle className="w-5 h-5 text-orange-400" />
-                          AbuseIPDB Report
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4 mt-auto">
-                          <div>
-                            <p className="text-xs text-slate-400">
-                              Abuse Score
-                            </p>
-                            <p className="text-2xl font-bold text-orange-400">
-                              {results.abuseIPDB.abuseConfidenceScore}%
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400">
-                              Total Reports
-                            </p>
-                            <p className="text-2xl font-bold text-slate-300">
-                              {results.abuseIPDB.totalReports}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400">Country</p>
-                            <p className="text-sm font-medium text-slate-300">
-                              {results.abuseIPDB.countryCode}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400">ISP</p>
-                            <p className="text-sm font-medium text-slate-300 truncate">
-                              {results.abuseIPDB.isp}
-                            </p>
-                          </div>
+                  {results.abuseIPDB && (
+                    <div className="p-4 bg-card border border-border rounded-md">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4" />
+                        AbuseIPDB
+                      </h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-[11px] text-muted">Abuse Score</p>
+                          <p className="font-mono-data text-lg font-bold text-warning">
+                            {results.abuseIPDB.abuseConfidenceScore}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-muted">Reports</p>
+                          <p className="font-mono-data text-lg font-bold text-foreground">
+                            {results.abuseIPDB.totalReports}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-muted">Country</p>
+                          <p className="font-mono-data text-sm text-foreground">
+                            {results.abuseIPDB.countryCode}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-muted">ISP</p>
+                          <p className="font-mono-data text-sm text-foreground truncate">
+                            {results.abuseIPDB.isp}
+                          </p>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
+                {/* URLScan result card — composite */}
                 {results.urlScan && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start mt-6">
-                    <ScreenshotCard results={results} />
-                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-slate-700/50 transition-colors h-full flex flex-col">
-                      <h3 className="text-lg font-semibold mb-6">
-                        Detected Technologies
-                      </h3>
-                      {results.urlScan.technologies.length > 0 ? (
-                        <div className="flex flex-wrap gap-2 mt-auto">
-                          {results.urlScan.technologies.map((tech, idx) => (
-                            <span
-                              key={idx}
-                              className="px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs text-slate-300"
-                            >
-                              {tech.app}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-slate-500 text-sm">
-                          No technologies detected
-                        </p>
-                      )}
-                      <div className="mt-6 space-y-3">
-                        <div>
-                          <p className="text-xs text-slate-400">Domain</p>
-                          <p className="text-sm text-slate-300">
-                            {results.urlScan.page.domain}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-400">Server</p>
-                          <p className="text-sm text-slate-300">
-                            {results.urlScan.page.server || "Unknown"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-400">Country</p>
-                          <p className="text-sm text-slate-300">
-                            {results.urlScan.page.country || "Unknown"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <ScanResultCard results={results} />
                 )}
 
+                {/* URLScan loading indicator */}
                 {!results.urlScan && isLoadingURLScan && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-tr from-cyan-900/10 to-transparent"></div>
-                      <div className="relative">
-                        <div className="flex items-center gap-3 mb-5">
-                          <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
-                          <h3 className="text-lg font-semibold text-slate-200">Loading Screenshot...</h3>
-                        </div>
-                        <LoadingShimmer className="h-56 rounded-2xl" />
-                        <p className="text-sm text-slate-400 mt-4 leading-relaxed">
-                          URLScan is actively browsing the target — this can take 10-30 seconds
-                        </p>
-                      </div>
+                  <div className="p-4 bg-card border border-border rounded-md">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                        URLScan loading — 10-30s
+                      </span>
                     </div>
-                    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-tr from-emerald-900/10 to-transparent"></div>
-                      <div className="relative">
-                        <div className="flex items-center gap-3 mb-5">
-                          <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-                          <h3 className="text-lg font-semibold text-slate-200">Detecting Technologies...</h3>
-                        </div>
-                        <LoadingShimmer className="h-32 rounded-2xl" />
+                    <div className="grid grid-cols-1 md:grid-cols-[40%_1fr] gap-4">
+                      <LoadingShimmer className="aspect-video rounded-sm" />
+                      <div className="space-y-2">
+                        <LoadingShimmer className="h-4 w-3/4 rounded-sm" />
+                        <LoadingShimmer className="h-4 w-1/2 rounded-sm" />
+                        <LoadingShimmer className="h-4 w-2/3 rounded-sm" />
                       </div>
                     </div>
                   </div>
@@ -509,37 +430,33 @@ export function ThreatDashboard() {
               </div>
             )}
 
+            {/* Empty state — muted text only, no illustrations */}
             {!isScanning && !results && (
-              <div className="text-center py-20">
-                <Shield className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-400 mb-2">
-                  Ready to Scan
-                </h3>
-                <p className="text-slate-500 text-sm">
-                  Enter a URL or IP address above to begin threat analysis
-                </p>
+              <div className="py-16">
+                <p className="text-sm text-muted">No recent scans</p>
               </div>
             )}
+
             {/* Footer */}
-            <footer className="mt-auto py-10 border-t border-slate-900/30 flex flex-col md:flex-row items-center justify-between gap-6 text-slate-500">
-              <div className="flex items-center gap-3 text-xs font-medium tracking-wide">
-                <span className="opacity-40 uppercase tracking-[0.2em] text-[10px]">Developed by</span>
+            <footer className="mt-auto py-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 text-muted">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="uppercase tracking-widest text-[10px]">Developed by</span>
                 <a
                   href="https://github.com/negoro26"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-slate-400 hover:text-emerald-400 font-bold transition-colors duration-300"
+                  className="text-foreground hover:text-primary font-semibold transition-colors"
                 >
                   negoro26
                 </a>
               </div>
 
-              <div className="flex items-center gap-1 group">
+              <div className="flex items-center gap-1">
                 <a
                   href="https://github.com/negoro26/ThreatRadar"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 hover:bg-slate-800/40 rounded-lg hover:text-emerald-400 transition-all duration-300"
+                  className="p-1.5 hover:bg-secondary rounded-md hover:text-primary transition-colors"
                 >
                   <svg
                     role="img"
@@ -555,7 +472,7 @@ export function ThreatDashboard() {
                   href="https://negoro26.github.io"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 hover:bg-slate-800/40 rounded-lg hover:text-emerald-400 transition-all duration-300"
+                  className="p-1.5 hover:bg-secondary rounded-md hover:text-primary transition-colors"
                 >
                   <Globe className="w-4 h-4" />
                 </a>
@@ -566,39 +483,34 @@ export function ThreatDashboard() {
 
         {/* History Sidebar Overlay for Mobile */}
         <div
-          className={`fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[90] transition-opacity duration-500 ${showHistory ? "opacity-100" : "opacity-0 pointer-events-none"} xl:hidden`}
+          className={`fixed inset-0 bg-background/40 z-[90] transition-opacity duration-300 ${showHistory ? "opacity-100" : "opacity-0 pointer-events-none"} xl:hidden`}
           onClick={() => setShowHistory(false)}
         />
 
         {/* Scan History Sidebar */}
         <aside
-          className={`fixed right-0 top-0 h-full w-full sm:w-80 md:w-96 bg-[#070b14]/95 backdrop-blur-3xl border-l border-slate-800/50 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] flex flex-col z-[100] transition-transform duration-500 ease-in-out transform ${showHistory ? "translate-x-0" : "translate-x-full"}`}
+          className={`fixed right-0 top-0 h-full w-full sm:w-80 md:w-96 bg-background border-l border-border flex flex-col z-[100] transition-transform duration-300 transform ${showHistory ? "translate-x-0" : "translate-x-full"}`}
         >
-          <div className="p-6 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/20">
-            <h3 className="font-bold text-lg flex items-center gap-3 text-emerald-400">
-              <History className="w-5 h-5" />
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h3 className="font-semibold text-sm flex items-center gap-2 text-foreground">
+              <History className="w-4 h-4" />
               Scan History
             </h3>
             <Button
               onClick={() => setShowHistory(false)}
               variant="ghost"
               size="icon"
-              className="h-10 w-10 rounded-full hover:bg-slate-800/50 transition-colors"
+              className="h-8 w-8 rounded-md hover:bg-secondary"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
             {history.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 bg-slate-900/50 rounded-full flex items-center justify-center mb-4">
-                  <History className="w-8 h-8 text-slate-700" />
-                </div>
-                <p className="text-slate-500 text-sm font-medium">
-                  Your scan history is empty
-                </p>
-              </div>
+              <p className="text-sm text-muted py-8 text-center">
+                No recent scans
+              </p>
             ) : (
               history.map((item, idx) => (
                 <button
@@ -608,21 +520,16 @@ export function ThreatDashboard() {
                     handleScan(item.target);
                     setShowHistory(false);
                   }}
-                  className="w-full p-4 bg-slate-800/20 hover:bg-slate-800/40 rounded-2xl border border-slate-800/50 text-left transition-all duration-300 hover:border-emerald-500/30 group focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  className="w-full p-3 bg-card hover:bg-secondary rounded-md border border-border text-left transition-colors focus:outline-none focus:ring-1 focus:ring-primary/30"
                 >
-                  <p className="text-sm font-bold text-slate-200 truncate mb-2 group-hover:text-emerald-400 transition-colors">
+                  <p className="font-mono-data text-sm text-foreground truncate mb-1">
                     {item.target}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600">
-                      {new Date(item.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    <span className="font-mono-data text-[11px] text-muted">
+                      {getRelativeTime(item.timestamp)}
                     </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-slate-500">Score</span>
-                      <span className={`text-xs font-black ${getThreatLevel(item.globalScore).color}`}>
-                        {item.globalScore}
-                      </span>
-                    </div>
+                    <SafetyScoreBadge score={item.globalScore} showLabel={false} className="text-[10px] px-1.5 py-0.5" />
                   </div>
                 </button>
               ))
@@ -630,10 +537,11 @@ export function ThreatDashboard() {
           </div>
 
           {history.length > 0 && (
-            <div className="p-6 bg-slate-900/20 border-t border-slate-800/50">
+            <div className="p-3 border-t border-border">
               <Button
                 onClick={clearHistory}
-                className="w-full bg-slate-800/50 hover:bg-rose-900/40 text-slate-400 hover:text-rose-400 border border-slate-700/50 rounded-xl transition-all duration-300 h-12 font-bold text-xs uppercase tracking-widest"
+                variant="outline"
+                className="w-full border-border text-muted hover:text-destructive hover:border-destructive/30 rounded-md h-9 text-xs font-semibold uppercase tracking-wider"
               >
                 Clear History
               </Button>

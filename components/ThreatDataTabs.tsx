@@ -13,84 +13,84 @@ export function ThreatDataTabs({ results }: ThreatDataTabsProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
   return (
-    <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/60 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-slate-700/50 transition-colors mt-6">
-      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        <Database className="w-5 h-5 text-cyan-400" />
+    <div className="p-4 bg-card border border-border rounded-md">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted mb-3 flex items-center gap-1.5">
+        <Database className="w-4 h-4" />
         Detailed Analysis
       </h3>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-slate-800/50 border border-slate-700/50 w-full justify-start overflow-x-auto rounded-xl p-1 mb-2 max-w-full">
+        <TabsList className="bg-secondary border border-border w-full justify-start overflow-x-auto rounded-md p-0.5 mb-2 max-w-full">
           <TabsTrigger
             value="overview"
-            className="data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-400 rounded-lg whitespace-nowrap"
+            className="data-[state=active]:bg-card data-[state=active]:text-primary rounded-sm text-xs whitespace-nowrap"
           >
             Overview
           </TabsTrigger>
           {results.virusTotal && (
             <TabsTrigger
               value="virustotal"
-              className="data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-400 rounded-lg whitespace-nowrap"
+              className="data-[state=active]:bg-card data-[state=active]:text-primary rounded-sm text-xs whitespace-nowrap"
             >
-              <Shield className="w-4 h-4 mr-2" />
+              <Shield className="w-3.5 h-3.5 mr-1" />
               VirusTotal
             </TabsTrigger>
           )}
           {results.abuseIPDB && (
             <TabsTrigger
               value="abuseipdb"
-              className="data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-400 rounded-lg whitespace-nowrap"
+              className="data-[state=active]:bg-card data-[state=active]:text-primary rounded-sm text-xs whitespace-nowrap"
             >
-              <AlertTriangle className="w-4 h-4 mr-2" />
+              <AlertTriangle className="w-3.5 h-3.5 mr-1" />
               AbuseIPDB
             </TabsTrigger>
           )}
           {results.urlScan && (
             <TabsTrigger
               value="urlscan"
-              className="data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-400 rounded-lg whitespace-nowrap"
+              className="data-[state=active]:bg-card data-[state=active]:text-primary rounded-sm text-xs whitespace-nowrap"
             >
-              <Globe className="w-4 h-4 mr-2" />
+              <Globe className="w-3.5 h-3.5 mr-1" />
               URLScan
             </TabsTrigger>
           )}
           {results.urlHaus && (
             <TabsTrigger
               value="urlhaus"
-              className="data-[state=active]:bg-slate-700 data-[state=active]:text-emerald-400 rounded-lg whitespace-nowrap"
+              className="data-[state=active]:bg-card data-[state=active]:text-primary rounded-sm text-xs whitespace-nowrap"
             >
-              <AlertTriangle className="w-4 h-4 mr-2" />
+              <AlertTriangle className="w-3.5 h-3.5 mr-1" />
               URLHaus
             </TabsTrigger>
           )}
         </TabsList>
 
-        <TabsContent value="overview" className="mt-4">
-          <div className="space-y-4">
-            <div className="p-5 sm:p-6 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50">
-              <h4 className="text-sm font-semibold mb-4 text-emerald-400">Scan Summary</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <TabsContent value="overview" className="mt-3">
+          <div className="space-y-3">
+            <div className="p-4 bg-secondary/50 rounded-md border border-border">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-primary mb-3">Scan Summary</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
-                  <p className="text-xs text-slate-400">Target</p>
-                  <p className="text-sm text-slate-300 break-all">{results.target}</p>
+                  <p className="text-[11px] text-muted">Target</p>
+                  <p className="font-mono-data text-sm text-foreground break-all">{results.target}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">Type</p>
-                  <p className="text-sm text-slate-300 uppercase">{results.type}</p>
+                  <p className="text-[11px] text-muted">Type</p>
+                  <p className="font-mono-data text-sm text-foreground uppercase">{results.type}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">Global Score</p>
-                  <p className="text-sm font-bold text-emerald-400">{results.globalScore}/100</p>
+                  <p className="text-[11px] text-muted">Global Score</p>
+                  <p className="font-mono-data text-sm font-bold text-primary">{results.globalScore}/100</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">Timestamp</p>
-                  <p className="text-sm text-slate-300">
+                  <p className="text-[11px] text-muted">Timestamp</p>
+                  <p className="font-mono-data text-sm text-foreground">
                     {new Date(results.timestamp).toLocaleString()}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">Data Sources</p>
-                  <p className="text-sm text-slate-300">
+                  <p className="text-[11px] text-muted">Data Sources</p>
+                  <p className="font-mono-data text-sm text-foreground">
                     {[
                       results.virusTotal && 'VT',
                       results.abuseIPDB && 'AIPDB',
@@ -102,8 +102,8 @@ export function ThreatDataTabs({ results }: ThreatDataTabsProps) {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">Status</p>
-                  <p className="text-sm text-slate-300">
+                  <p className="text-[11px] text-muted">Status</p>
+                  <p className="font-mono-data text-sm text-foreground">
                     {results.success ? 'Complete' : 'Partial/Failed'}
                   </p>
                 </div>
@@ -111,14 +111,14 @@ export function ThreatDataTabs({ results }: ThreatDataTabsProps) {
             </div>
 
             {results.errors && results.errors.length > 0 && (
-              <div className="p-5 sm:p-6 bg-yellow-500/10 rounded-2xl border border-yellow-500/20 backdrop-blur-sm">
-                <h4 className="text-sm font-semibold mb-3 text-yellow-400 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
+              <div className="p-4 bg-warning/5 rounded-md border border-warning/20">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-warning mb-2 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
                   Warnings
                 </h4>
                 <ul className="list-disc list-inside space-y-1">
                   {results.errors.map((error, idx) => (
-                    <li key={idx} className="text-xs text-slate-400">
+                    <li key={idx} className="font-mono-data text-xs text-destructive">
                       {error}
                     </li>
                   ))}
@@ -129,9 +129,9 @@ export function ThreatDataTabs({ results }: ThreatDataTabsProps) {
         </TabsContent>
 
         {results.virusTotal && (
-          <TabsContent value="virustotal" className="mt-4">
-            <div className="p-5 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 w-full overflow-hidden">
-              <pre className="text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
+          <TabsContent value="virustotal" className="mt-3">
+            <div className="p-4 bg-secondary/50 rounded-md border border-border w-full overflow-hidden">
+              <pre className="font-mono-data text-xs text-foreground overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
                 {JSON.stringify(results.virusTotal, null, 2)}
               </pre>
             </div>
@@ -139,9 +139,9 @@ export function ThreatDataTabs({ results }: ThreatDataTabsProps) {
         )}
 
         {results.abuseIPDB && (
-          <TabsContent value="abuseipdb" className="mt-4">
-            <div className="p-5 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 w-full overflow-hidden">
-              <pre className="text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
+          <TabsContent value="abuseipdb" className="mt-3">
+            <div className="p-4 bg-secondary/50 rounded-md border border-border w-full overflow-hidden">
+              <pre className="font-mono-data text-xs text-foreground overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
                 {JSON.stringify(results.abuseIPDB, null, 2)}
               </pre>
             </div>
@@ -149,9 +149,9 @@ export function ThreatDataTabs({ results }: ThreatDataTabsProps) {
         )}
 
         {results.urlScan && (
-          <TabsContent value="urlscan" className="mt-4">
-            <div className="p-5 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 w-full overflow-hidden">
-              <pre className="text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
+          <TabsContent value="urlscan" className="mt-3">
+            <div className="p-4 bg-secondary/50 rounded-md border border-border w-full overflow-hidden">
+              <pre className="font-mono-data text-xs text-foreground overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
                 {JSON.stringify(results.urlScan, null, 2)}
               </pre>
             </div>
@@ -159,9 +159,9 @@ export function ThreatDataTabs({ results }: ThreatDataTabsProps) {
         )}
 
         {results.urlHaus && (
-          <TabsContent value="urlhaus" className="mt-4">
-            <div className="p-5 bg-slate-800/30 backdrop-blur-md rounded-2xl border border-slate-700/50 w-full overflow-hidden">
-              <pre className="text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
+          <TabsContent value="urlhaus" className="mt-3">
+            <div className="p-4 bg-secondary/50 rounded-md border border-border w-full overflow-hidden">
+              <pre className="font-mono-data text-xs text-foreground overflow-x-auto whitespace-pre-wrap break-words max-h-[500px] overflow-y-auto custom-scrollbar">
                 {JSON.stringify(results.urlHaus, null, 2)}
               </pre>
             </div>
