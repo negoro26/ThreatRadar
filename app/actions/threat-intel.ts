@@ -369,7 +369,10 @@ export async function scanTargetFast(
     const resolvedIP = type === "ip" ? cleanTarget : await resolveHostname(cleanTarget);
 
     const results = await Promise.allSettled([
-      fetchVirusTotal(cleanTarget, type),
+      fetchVirusTotal(
+        type === "ip" && resolvedIP ? resolvedIP : cleanTarget,
+        type,
+      ),
       resolvedIP ? fetchAbuseIPDB(resolvedIP) : Promise.resolve(null),
       type === "url" ? fetchURLHaus(cleanTarget) : Promise.resolve(null),
     ]);
